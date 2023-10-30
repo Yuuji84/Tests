@@ -1,0 +1,204 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>ТРИЦ. Тестовое задание</title>
+    <style>
+        td {
+            padding: 5px;
+        }
+
+        button {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Список сервисов</h2>
+    <div>
+        <input type="hidden" id="serviceId" />
+        <p>
+            Имя:<br />
+            <input id="serviceName" />
+        </p>
+        <p>
+            Описание:<br />
+            <input id="serviceDescription" />
+        </p>
+        <p>
+            Состояние:<br />
+            <select id="serviceState">
+                <option>Stable</option>
+                <option>Non-Stable</option>
+                <option>Don't Work</option>
+            </select>
+        </p>
+        <p>
+            <button id="saveBtn">Сохранить</button>
+            <button id="resetBtn">Сбросить</button>
+        </p>
+    </div>
+    <table>
+        <thead><tr><th>Имя</th><th>Описание</th><th>Состояние</th><th></th></tr></thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+        // Получение всех пользователей
+        async function getServices() {
+            // отправляет запрос и получаем ответ
+            const response = await fetch("/api/services", {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            // если запрос прошел нормально
+            if (response.ok === true) {
+                // получаем данные
+                const services = await response.json();
+                const rows = document.querySelector("tbody");
+                // добавляем полученные элементы в таблицу
+                services.forEach(service => rows.append(row(service)));
+            }
+        }
+        // Получение одного пользователя
+        async function getService(id) {
+            const response = await fetch(`/api/services/${id}`, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const service = await response.json();
+                document.getElementById("serviceId").value = service.id;
+                document.getElementById("serviceName").value = service.name;
+                document.getElementById("serviceDescription").value = service.description;
+                document.getElementById("serviceState").value = service.state;
+            }
+            else {
+                // если произошла ошибка, получаем сообщение об ошибке
+                const error = await response.json();
+                console.log(error.message); // и выводим его на консоль
+            }
+        }
+        // Добавление пользователя
+        async function createService(serviceName, serviceState, serviceDescription) {
+
+            const response = await fetch("api/services", {
+                method: "POST",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: serviceName,
+                    description: serviceDescription,
+                    state: serviceState
+                })
+            });
+            if (response.ok === true) {
+                const service = await response.json();
+                document.querySelector("tbody").append(row(service));
+            }
+            else {
+                const error = await response.json();
+                console.log(error.message);
+            }
+        }
+        // Изменение пользователя
+        async function editService(serviceId, serviceName, serviceState, serviceDescription) {
+            const response = await fetch("api/services", {
+                method: "PUT",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: serviceId,
+                    name: serviceName,
+                    state: serviceState,
+                    description: serviceDescription
+                })
+            });
+            if (response.ok === true) {
+                const service = await response.json();
+                document.querySelector(`tr[data-rowid='${service.id}']`).replaceWith(row(service));
+            }
+            else {
+                const error = await response.json();
+                console.log(error.message);
+            }
+        }
+        // Удаление пользователя
+        async function deleteService(id) {
+            const response = await fetch(`/api/services/${id}`, {
+                method: "DELETE",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const service = await response.json();
+                document.querySelector(`tr[data-rowid='${service.id}']`).remove();
+            }
+            else {
+                const error = await response.json();
+                console.log(error.message);
+            }
+        }
+
+        // сброс данных формы после отправки
+        function reset() {
+            document.getElementById("serviceId").value =
+                document.getElementById("serviceName").value =
+                document.getElementById("serviceDescription").value = "";
+            document.getElementById("serviceState").selectedIndex = 0;
+        }
+        // создание строки для таблицы
+        function row(service) {
+
+            const tr = document.createElement("tr");
+            tr.setAttribute("data-rowid", service.id);
+
+            const nameTd = document.createElement("td");
+            nameTd.append(service.name);
+            tr.append(nameTd);
+
+            const descriptionTd = document.createElement("td");
+            descriptionTd.append(service.description);
+            tr.append(descriptionTd);
+
+            const stateTd = document.createElement("td");
+            stateTd.append(service.state);
+            tr.append(stateTd);
+
+            const linksTd = document.createElement("td");
+
+            const editLink = document.createElement("button");
+            editLink.append("Изменить");
+            editLink.addEventListener("click", async () => await getService(service.id));
+            linksTd.append(editLink);
+
+            const removeLink = document.createElement("button");
+            removeLink.append("Удалить");
+            removeLink.addEventListener("click", async () => await deleteService(service.id));
+
+            linksTd.append(removeLink);
+            tr.appendChild(linksTd);
+
+            return tr;
+        }
+        // сброс значений формы
+        document.getElementById("resetBtn").addEventListener("click", () => reset());
+
+        // отправка формы
+        document.getElementById("saveBtn").addEventListener("click", async () => {
+
+            const id = document.getElementById("serviceId").value;
+            const name = document.getElementById("serviceName").value;
+            const description = document.getElementById("serviceDescription").value;
+            const stateBox = document.getElementById("serviceState");
+            const state = stateBox.options[stateBox.selectedIndex].text;
+            if (id === "")
+                await createService(name, state, description);
+            else
+                await editService(id, name, state, description);
+            reset();
+        });
+
+        // загрузка пользователей
+        getServices();
+    </script>
+</body>
+</html>
